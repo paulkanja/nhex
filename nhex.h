@@ -57,18 +57,25 @@ void nhend() {
     // TODO: restore signal handlers
     printf("\033[0m\033[?25h\033[?1049l");
     fflush(stdout);
-    // TODO: handle potential 'tcsetattr' errors
+    // TODO: handle potential 'tcsetattr' error
     tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.origin_term);
 }
 
 int nhflush() {
+    _ctx.ctx_term.c_oflag |= OPOST;
+    // TODO: handle potential 'tcsetattr' errors
+    tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term);
     if (!_ctx.initialized) { return EOF; }
     if (_ctx.buffer_count == 0) { return 0; }
     if (fwrite(_ctx.buffer, 1, _ctx.buffer_count, stdout) <= 0) {
         return EOF;
     }
     printf("\033[0m");
-    return fflush(stdout);
+    int out = fflush(stdout);
+    _ctx.ctx_term.c_oflag &= ~OPOST;
+    // TODO: handle potential 'tcsetattr' errors
+    tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term);
+    return out;
 }
 
 int nhgetc() {
@@ -98,6 +105,7 @@ bool nhinit() {
     _ctx.ctx_term.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN);
     _ctx.ctx_term.c_cc[VMIN] = 1;
     _ctx.ctx_term.c_cc[VTIME] = 0;
+    // TODO: handle potential 'tcsetattr' error
     tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term);
     // TODO: save signal handlers
     signal(SIGABRT, &_nhsigf);
