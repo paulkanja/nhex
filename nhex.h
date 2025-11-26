@@ -19,7 +19,6 @@ int  nhprintf(const char *format, ...);
 
 #ifdef NHEX_IMPLEMENTATION
 
-// TODO: implement Windows version
 #ifndef _WIN32
 
 #include <signal.h>
@@ -237,33 +236,7 @@ static void _nhtstpf(int sig) {
 
 #else
 
-void nhclear() {
-    fprintf(stderr, "ERROR: nhex is not implemented for Windows\n");
-}
-
-void nhend() {
-    fprintf(stderr, "ERROR: nhex is not implemented for Windows\n");
-}
-
-int nhflush() {
-    fprintf(stderr, "ERROR: nhex is not implemented for Windows\n");
-    return EOF;
-}
-
-int nhgetc() {
-    fprintf(stderr, "ERROR: nhex is not implemented for Windows\n");
-    return EOF;
-}
-
-bool nhinit() {
-    fprintf(stderr, "ERROR: nhex is not implemented for Windows\n");
-    return false;
-}
-
-int nhprintf(const char *format, ...) {
-    fprintf(stderr, "ERROR: nhex is not implemented for Windows\n");
-    return -1;
-}
+// TODO: implement Windows version
 
 #endif // _WIN32
 
