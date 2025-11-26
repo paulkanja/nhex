@@ -132,6 +132,15 @@ bool nhinit() {
     return true;
 }
 
+bool nhmv(int row, int col) {
+    if (nhprintf("\033[%d;%dH", row, col) < 0) { return false; }
+    return nhflush() != EOF;
+}
+
+int nhmvnf(int row, int col) {
+    return nhprintf("\033[%d;%dH", row, col);
+}
+
 int nhprint(const char *str) {
     if (!_ctx.initialized) { return -1; }
     size_t count = strlen(str);
