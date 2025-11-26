@@ -44,6 +44,7 @@ static void _nhsigf(int sig);
 static void _nhtstpf(int sig);
 
 void nhclear() {
+    if (!_ctx.initialized) { return -1; }
     _ctx.buffer_count = 0;
     _ctx.buffer[0] = '\0';
     // TODO: properly shrink the buffer
@@ -62,10 +63,10 @@ void nhend() {
 }
 
 int nhflush() {
+    if (!_ctx.initialized) { return EOF; }
     _ctx.ctx_term.c_oflag |= OPOST;
     // TODO: handle potential 'tcsetattr' errors
     tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term);
-    if (!_ctx.initialized) { return EOF; }
     if (_ctx.buffer_count == 0) { return 0; }
     if (fwrite(_ctx.buffer, 1, _ctx.buffer_count, stdout) <= 0) {
         return EOF;
@@ -79,6 +80,7 @@ int nhflush() {
 }
 
 int nhgetc() {
+    if (!_ctx.initialized) { return -1; }
     char input[4];
     int n = (int)read(STDIN_FILENO, input, 4);
     if (n < 0) { return n; }
@@ -131,6 +133,7 @@ bool nhinit() {
 }
 
 int nhprint(const char *str) {
+    if (!_ctx.initialized) { return -1; }
     size_t count = strlen(str);
     if (count == 0) { return 0; }
     if (!_nhreserve(count)) { return -1; }
