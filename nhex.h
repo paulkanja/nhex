@@ -8,6 +8,8 @@ void nhclear();
 void nhend();
 int  nhflush();
 int  nhgetc();
+bool nhmv(int row, int col);
+int  nhmvnf(int row, int col);
 bool nhinit();
 int  nhprint(const char *str);
 int  nhprintf(const char *format, ...);
