@@ -44,7 +44,7 @@ static void _nhsigf(int sig);
 static void _nhtstpf(int sig);
 
 void nhclear() {
-    if (!_ctx.initialized) { return -1; }
+    if (!_ctx.initialized) { return; }
     _ctx.buffer_count = 0;
     _ctx.buffer[0] = '\0';
     // TODO: properly shrink the buffer
