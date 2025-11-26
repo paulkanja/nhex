@@ -9,6 +9,7 @@ void nhend();
 int  nhflush();
 int  nhgetc();
 bool nhinit();
+int  nhprint(const char *str);
 int  nhprintf(const char *format, ...);
 
 #endif // _h_NHEX_
@@ -121,6 +122,16 @@ bool nhinit() {
     return true;
 }
 
+int nhprint(const char *str) {
+    size_t count = strlen(str);
+    if (count == 0) { return 0; }
+    if (!_nhreserve(count)) { return -1; }
+    memmove(_ctx.buffer + _ctx.buffer_count, str, count);
+    _ctx.buffer_count += count;
+    _ctx.buffer[_ctx.buffer_count] = '\0';
+    return count;
+}
+
 int nhprintf(const char *format, ...) {
     if (!_ctx.initialized) { return -1; }
     va_list args;
@@ -138,8 +149,9 @@ int nhprintf(const char *format, ...) {
     if (count > 0) {
         _ctx.buffer_count += count;
         _ctx.buffer[_ctx.buffer_count] = '\0';
+        return count;
     }
-    return count;
+    return -1;
 }
 
 static void _nhcls() {
