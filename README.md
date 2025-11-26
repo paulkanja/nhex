@@ -38,6 +38,10 @@ int main() {
 }
 ```
 
+### Output
+
+![Output of example.c](example_screenshot.png)
+
 ## Usage
 
 Just download the file nhex.h or copy its contents and include it. It works for C99 and later versions of C.
