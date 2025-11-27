@@ -40,6 +40,8 @@ nhc_t nhgetc();
 bool  nhgettflags(int *flags_ptr);
 bool  nhmv(int row, int col);
 int   nhmvnf(int row, int col);
+bool  nhmvr(int d_row, int d_col);
+int   nhmvrnf(int d_row, int d_col);
 bool  nhinit();
 int   nhprint(const char *str);
 int   nhprintf(const char *format, ...);
@@ -93,6 +95,7 @@ bool nhcpos(int *row_ptr, int *col_ptr) {
     if (!row_ptr && !col_ptr) { return true; }
     int row = -1;
     int col = -1;
+    if (!_ctx.initialized) { return false; }
     struct termios fterm = _ctx.ctx_term;
     fterm.c_lflag &= ~(ECHO | ECHONL);
     if (tcsetattr(STDIN_FILENO, TCSANOW, &fterm) == -1) { return false; }
@@ -114,6 +117,7 @@ bool nhcpos(int *row_ptr, int *col_ptr) {
 }
 
 int nhcols() {
+    if (!_ctx.initialized) { return -1; }
     int cols;
     nhwsize(&cols, NULL);
     return cols;
@@ -226,11 +230,13 @@ bool nhinit() {
 }
 
 bool nhmv(int row, int col) {
+    if (!_ctx.initialized) { return false; }
     if (nhmvnf(row, col) < 0) { return false; }
     return nhflush() != EOF;
 }
 
 int nhmvnf(int row, int col) {
+    if (!_ctx.initialized) { return -1; }
     if (row > 0 && col > 0) {
         return nhprintf("\033[%d;%dH", row, col);
     }
@@ -241,6 +247,29 @@ int nhmvnf(int row, int col) {
         int _col;
         if (!nhcpos(NULL, &_col)) { return -1; }
         return nhprintf("\033[s\033[%d;%dH\033[u", row, _col);
+    }
+    return 0;
+}
+
+bool nhmvr(int d_row, int d_col) {
+    if (!_ctx.initialized) { return false; }
+    if (nhmvrnf(d_row, d_col) < 0) { return false; }
+    return nhflush() != EOF;
+}
+
+int nhmvrnf(int d_row, int d_col) {
+    if (!_ctx.initialized) { return -1; }
+    if (!d_row && !d_col) { return 0; }
+    // TODO: handle potential 'nhprintf' errors
+    if (d_row < 0) {
+        nhprintf("\033[%dA", d_row);
+    } else if (d_row) {
+        nhprintf("\033[%dB", d_row);
+    }
+    if (d_col < 0) {
+        nhprintf("\033[%dC", d_col);
+    } else if (d_col) {
+        nhprintf("\033[%dD", d_col);
     }
     return 0;
 }
@@ -279,6 +308,7 @@ int nhprintf(const char *format, ...) {
 }
 
 int nhrows() {
+    if (!_ctx.initialized) { return -1; }
     int rows;
     nhwsize(NULL, &rows);
     return rows;
@@ -312,6 +342,7 @@ bool nhsettflags(int flags) {
 }
 
 bool nhwsize(int *rows_ptr, int *cols_ptr) {
+    if (!_ctx.initialized) { return false; }
     if (!rows_ptr && !cols_ptr) { return true; }
     if (rows_ptr) { *rows_ptr = -1; }
     if (cols_ptr) { *cols_ptr = -1; }
