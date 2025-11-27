@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 void nhclear();
+int  nhcols();
 void nhend();
 int  nhflush();
 int  nhgetc();
@@ -13,6 +14,8 @@ int  nhmvnf(int row, int col);
 bool nhinit();
 int  nhprint(const char *str);
 int  nhprintf(const char *format, ...);
+int  nhrows();
+bool nhwsize(int *cols, int *rows);
 
 #endif // _h_NHEX_
 
@@ -25,6 +28,7 @@ int  nhprintf(const char *format, ...);
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -35,6 +39,7 @@ static struct {
     char *buffer;
     size_t buffer_count, buffer_size;
     struct termios ctx_term;
+    struct winsize ctx_ws;
     struct termios origin_term;
 } _ctx;
 
@@ -50,6 +55,12 @@ void nhclear() {
     _ctx.buffer[0] = '\0';
     // TODO: properly shrink the buffer
     _nhcls();
+}
+
+int nhcols() {
+    int cols = -1;
+    nhwsize(&cols, NULL);
+    return cols;
 }
 
 void nhend() {
@@ -173,6 +184,19 @@ int nhprintf(const char *format, ...) {
         return count;
     }
     return -1;
+}
+
+int nhrows() {
+    int rows = -1;
+    nhwsize(NULL, &rows);
+    return rows;
+}
+
+bool nhwsize(int *cols, int *rows) {
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &_ctx.ctx_ws) == -1) { return false; }
+    if (rows != NULL) { *rows = _ctx.ctx_ws.ws_row; }
+    if (cols != NULL) { *cols = _ctx.ctx_ws.ws_col; }
+    return true;
 }
 
 static void _nhcls() {
