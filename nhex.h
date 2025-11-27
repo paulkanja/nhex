@@ -12,7 +12,7 @@ enum nhtflag {
     NHT_RAW      =  4,
     NHT_NORAW    =  8,
     NHT_CBREAK   = 16,
-    NHT_NOCBREAK = 32,
+    NHT_NOCBREAK = 32
 };
 
 // TODO: use cross-platform keymaps
@@ -34,6 +34,7 @@ enum nhtflag {
 void  nhclear();
 bool  nhcpos(int *row_ptr, int *col_ptr);
 int   nhcols();
+bool  nhcset(bool f);
 void  nhend();
 int   nhflush();
 nhc_t nhgetc();
@@ -74,6 +75,7 @@ static struct {
     struct termios ctx_term;
     struct winsize ctx_ws;
     struct termios origin_term;
+    bool cset;
 } _ctx;
 
 static void _nhcls();
@@ -86,8 +88,10 @@ void nhclear() {
     if (!_ctx.initialized) { return; }
     _ctx.buffer_count = 0;
     _ctx.buffer[0] = '\0';
+    // nhprint("\033[?25h");
     // TODO: properly shrink the buffer
     _nhcls();
+    // nhflush();
 }
 
 // TODO: investigate methods of getting pos without nhflush
@@ -121,6 +125,14 @@ int nhcols() {
     int cols;
     nhwsize(&cols, NULL);
     return cols;
+}
+
+bool nhcset(bool f) {
+    if (!_ctx.initialized) { return false; }
+    if (nhprintf("\033[?25%c", f ? 'h' : 'l') < 0) { return false; }
+    if (nhflush() == EOF) { return false; }
+    _ctx.cset = f;
+    return true;
 }
 
 void nhend() {
