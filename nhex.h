@@ -32,6 +32,7 @@ enum nhtflag {
 #define NHKEY_PGDOWN  (0x1B5B367E)
 
 void  nhclear();
+bool  nhcpos(int *row_ptr, int *col_ptr);
 int   nhcols();
 void  nhend();
 int   nhflush();
@@ -87,8 +88,33 @@ void nhclear() {
     _nhcls();
 }
 
+// TODO: investigate methods of getting pos without nhflush
+bool nhcpos(int *row_ptr, int *col_ptr) {
+    if (!row_ptr && !col_ptr) { return true; }
+    int row = -1;
+    int col = -1;
+    struct termios fterm = _ctx.ctx_term;
+    fterm.c_lflag &= ~(ECHO | ECHONL);
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &fterm) == -1) { return false; }
+    nhflush();
+    printf("\033[6n");
+    fflush(stdout);
+    char buffer[32];
+    if (read(STDIN_FILENO, buffer, 32) == -1) {
+        tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term);
+        return false;
+    }
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term) == -1) {
+        return false;
+    }
+    if (sscanf(buffer + 2, "%d;%d", &row, &col) == EOF) { return false; }
+    if (row_ptr) { *row_ptr = row; }
+    if (col_ptr) { *col_ptr = col; }
+    return true;
+}
+
 int nhcols() {
-    int cols = -1;
+    int cols;
     nhwsize(&cols, NULL);
     return cols;
 }
@@ -106,11 +132,12 @@ void nhend() {
 
 int nhflush() {
     if (!_ctx.initialized) { return EOF; }
+    if (_ctx.buffer_count == 0) { return 0; }
     struct termios fterm = _ctx.ctx_term;
     fterm.c_oflag |= OPOST;
     // TODO: handle potential 'tcsetattr' errors
     tcsetattr(STDIN_FILENO, TCSANOW, &fterm);
-    if (_ctx.buffer_count == 0) { return 0; }
+    _nhcls();
     if (fwrite(_ctx.buffer, 1, _ctx.buffer_count, stdout) <= 0) {
         return EOF;
     }
@@ -123,8 +150,8 @@ int nhflush() {
 
 nhc_t nhgetc() {
     if (!_ctx.initialized) { return -1; }
-    char input[4];
-    int n = (int)read(STDIN_FILENO, input, 4);
+    char input[8];
+    int n = (int)read(STDIN_FILENO, input, 8);
     if (n < 0) { return n; }
     nhc_t c = 0LL;
     for (int i = 0; i < n; ++i) {
@@ -183,6 +210,7 @@ bool nhinit() {
     signal(SIGCONT, &_nhcontf);
     char *buffer = (char *)malloc(_DEFAULT_NHEX_BUFFER_SIZE);
     if (!buffer) {
+        // TODO: handle potential 'tcsetattr' error
         tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term);
         _ctx.initialized = true;
         nhend();
@@ -198,12 +226,23 @@ bool nhinit() {
 }
 
 bool nhmv(int row, int col) {
-    if (nhprintf("\033[%d;%dH", row, col) < 0) { return false; }
+    if (nhmvnf(row, col) < 0) { return false; }
     return nhflush() != EOF;
 }
 
 int nhmvnf(int row, int col) {
-    return nhprintf("\033[%d;%dH", row, col);
+    if (row > 0 && col > 0) {
+        return nhprintf("\033[%d;%dH", row, col);
+    }
+    if (col > 0) {
+        return nhprintf("\033[%dG", col);
+    }
+    if (row > 0) {
+        int _col;
+        if (!nhcpos(NULL, &_col)) { return -1; }
+        return nhprintf("\033[s\033[%d;%dH\033[u", row, _col);
+    }
+    return 0;
 }
 
 int nhprint(const char *str) {
@@ -240,7 +279,7 @@ int nhprintf(const char *format, ...) {
 }
 
 int nhrows() {
-    int rows = -1;
+    int rows;
     nhwsize(NULL, &rows);
     return rows;
 }
@@ -273,6 +312,9 @@ bool nhsettflags(int flags) {
 }
 
 bool nhwsize(int *rows_ptr, int *cols_ptr) {
+    if (!rows_ptr && !cols_ptr) { return true; }
+    if (rows_ptr) { *rows_ptr = -1; }
+    if (cols_ptr) { *cols_ptr = -1; }
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &_ctx.ctx_ws) == -1) { return false; }
     if (rows_ptr != NULL) { *rows_ptr = _ctx.ctx_ws.ws_row; }
     if (cols_ptr != NULL) { *cols_ptr = _ctx.ctx_ws.ws_col; }
