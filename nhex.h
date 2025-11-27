@@ -126,7 +126,7 @@ nhc_t nhgetc() {
     char input[4];
     int n = (int)read(STDIN_FILENO, input, 4);
     if (n < 0) { return n; }
-    nhc_t c = 0ULL;
+    nhc_t c = 0LL;
     for (int i = 0; i < n; ++i) {
         c <<= 8;
         c |= input[i];
