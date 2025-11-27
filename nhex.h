@@ -6,6 +6,15 @@
 
 typedef long long nhc_t;
 
+enum nhtflag {
+    NHT_ECHO     =  1,
+    NHT_NOECHO   =  2,
+    NHT_RAW      =  4,
+    NHT_NORAW    =  8,
+    NHT_CBREAK   = 16,
+    NHT_NOCBREAK = 32,
+};
+
 // TODO: use cross-platform keymaps
 #define NHKEY_TAB           (0x09)
 #define NHKEY_ESC           (0x1B)
@@ -27,12 +36,14 @@ int   nhcols();
 void  nhend();
 int   nhflush();
 nhc_t nhgetc();
+bool  nhgettflags(int *flags_ptr);
 bool  nhmv(int row, int col);
 int   nhmvnf(int row, int col);
 bool  nhinit();
 int   nhprint(const char *str);
 int   nhprintf(const char *format, ...);
 int   nhrows();
+bool  nhsettflags(int flags);
 bool  nhwsize(int *cols_ptr, int *rows_ptr);
 
 #endif // _h_NHEX_
@@ -123,6 +134,28 @@ nhc_t nhgetc() {
     return c;
 }
 
+bool nhgettflags(int *flags_ptr) {
+    *flags_ptr = 0;
+    if (!_ctx.initialized) { return false; }
+    if (tcgetattr(STDIN_FILENO, &_ctx.ctx_term) == -1) { return false; }
+    int flags = 0;
+    if (
+        _ctx.ctx_term.c_lflag & ECHO &&
+        _ctx.ctx_term.c_lflag & ECHONL
+    ) { flags |= NHT_ECHO; } else { flags |= NHT_NOECHO; }
+    if (!(
+        _ctx.ctx_term.c_lflag & ISIG
+    )) { flags |= NHT_CBREAK; } else { flags |= NHT_NOCBREAK; }
+    if (!(
+        _ctx.ctx_term.c_oflag & OPOST ||
+        _ctx.ctx_term.c_iflag & (BRKINT | ICRNL | IXON) ||
+        _ctx.ctx_term.c_lflag & (ICANON | IEXTEN) ||
+        !(_ctx.ctx_term.c_cflag & CS8)
+    )) { flags |= NHT_RAW; } else { flags |= NHT_NORAW; }
+    *flags_ptr = flags;
+    return true;
+}
+
 bool nhinit() {
     if (_ctx.initialized) { return false; }
     if (tcgetattr(STDIN_FILENO, &_ctx.origin_term) == -1) { return false; }
@@ -210,6 +243,33 @@ int nhrows() {
     int rows = -1;
     nhwsize(NULL, &rows);
     return rows;
+}
+
+bool nhsettflags(int flags) {
+    if (!_ctx.initialized) { return false; }
+    if (flags & NHT_NOECHO) {
+        _ctx.ctx_term.c_lflag &= ~(ECHO & ECHONL);
+    } else if (flags & NHT_ECHO) {
+        _ctx.ctx_term.c_lflag |=   ECHO | ECHONL;
+    }
+    if (flags & NHT_NOCBREAK) {
+        _ctx.ctx_term.c_lflag |=  ISIG;
+    } else if (flags & NHT_CBREAK) {
+        _ctx.ctx_term.c_lflag &= ~ISIG;
+    }
+    if (flags & NHT_NORAW) {
+        _ctx.ctx_term.c_oflag |= OPOST;
+        _ctx.ctx_term.c_iflag |= BRKINT | ICRNL | IXON;
+        _ctx.ctx_term.c_lflag |= ICANON | IEXTEN;
+        _ctx.ctx_term.c_cflag |= CS7;
+    } else if (flags & NHT_RAW) {
+        _ctx.ctx_term.c_oflag &= ~OPOST;
+        _ctx.ctx_term.c_iflag &= ~(BRKINT | ICRNL | IXON);
+        _ctx.ctx_term.c_lflag &= ~(ICANON | IEXTEN);
+        _ctx.ctx_term.c_cflag &= ~(CSIZE | PARENB);
+        _ctx.ctx_term.c_cflag |= CS8;
+    }
+    return tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term) != -1;
 }
 
 bool nhwsize(int *cols_ptr, int *rows_ptr) {
