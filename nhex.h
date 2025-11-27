@@ -4,20 +4,39 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-void nhclear();
-int  nhcols();
-void nhend();
-int  nhflush();
-int  nhgetc();
-bool nhmv(int row, int col);
-int  nhmvnf(int row, int col);
-bool nhinit();
-int  nhprint(const char *str);
-int  nhprintf(const char *format, ...);
-int  nhrows();
-bool nhwsize(int *cols, int *rows);
+typedef long long nhc_t;
+
+// TODO: use cross-platform keymaps
+#define NHKEY_TAB           (0x09)
+#define NHKEY_ESC           (0x1B)
+#define NHKEY_UP        (0x1B5B41)
+#define NHKEY_DOWN      (0x1B5B42)
+#define NHKEY_RIGHT     (0x1B5B43)
+#define NHKEY_LEFT      (0x1B5B44)
+#define NHKEY_CLEAR     (0x1B5B45)
+#define NHKEY_END       (0x1B5B46)
+#define NHKEY_HOME      (0x1B5B48)
+#define NHKEY_BTAB      (0x1B5B60)
+#define NHKEY_INS     (0x1B5B327E)
+#define NHKEY_DEL     (0x1B5B337E)
+#define NHKEY_PGUP    (0x1B5B357E)
+#define NHKEY_PGDOWN  (0x1B5B367E)
+
+void  nhclear();
+int   nhcols();
+void  nhend();
+int   nhflush();
+nhc_t nhgetc();
+bool  nhmv(int row, int col);
+int   nhmvnf(int row, int col);
+bool  nhinit();
+int   nhprint(const char *str);
+int   nhprintf(const char *format, ...);
+int   nhrows();
+bool  nhwsize(int *cols_ptr, int *rows_ptr);
 
 #endif // _h_NHEX_
+
 
 
 #ifdef NHEX_IMPLEMENTATION
@@ -76,27 +95,27 @@ void nhend() {
 
 int nhflush() {
     if (!_ctx.initialized) { return EOF; }
-    _ctx.ctx_term.c_oflag |= OPOST;
+    struct termios fterm = _ctx.ctx_term;
+    fterm.c_oflag |= OPOST;
     // TODO: handle potential 'tcsetattr' errors
-    tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term);
+    tcsetattr(STDIN_FILENO, TCSANOW, &fterm);
     if (_ctx.buffer_count == 0) { return 0; }
     if (fwrite(_ctx.buffer, 1, _ctx.buffer_count, stdout) <= 0) {
         return EOF;
     }
     printf("\033[0m");
     int out = fflush(stdout);
-    _ctx.ctx_term.c_oflag &= ~OPOST;
     // TODO: handle potential 'tcsetattr' errors
     tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term);
     return out;
 }
 
-int nhgetc() {
+nhc_t nhgetc() {
     if (!_ctx.initialized) { return -1; }
     char input[4];
     int n = (int)read(STDIN_FILENO, input, 4);
     if (n < 0) { return n; }
-    int c = 0;
+    nhc_t c = 0ULL;
     for (int i = 0; i < n; ++i) {
         c <<= 8;
         c |= input[i];
@@ -106,21 +125,21 @@ int nhgetc() {
 
 bool nhinit() {
     if (_ctx.initialized) { return false; }
-    if (tcgetattr(STDIN_FILENO, &_ctx.origin_term) == -1){
-        return false;
-    }
+    if (tcgetattr(STDIN_FILENO, &_ctx.origin_term) == -1) { return false; }
     _ctx.ctx_term = _ctx.origin_term;
     _ctx.ctx_term.c_iflag &= ~(
         IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON
     );
     _ctx.ctx_term.c_oflag &= ~OPOST;
+    _ctx.ctx_term.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN);
     _ctx.ctx_term.c_cflag &= ~(CSIZE | PARENB);
     _ctx.ctx_term.c_cflag |= CS8;
-    _ctx.ctx_term.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN);
     _ctx.ctx_term.c_cc[VMIN] = 1;
     _ctx.ctx_term.c_cc[VTIME] = 0;
     // TODO: handle potential 'tcsetattr' error
-    tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term);
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term) == -1) {
+        return false;
+    }
     // TODO: save signal handlers
     signal(SIGABRT, &_nhsigf);
     signal(SIGINT,  &_nhsigf);
@@ -131,6 +150,7 @@ bool nhinit() {
     signal(SIGCONT, &_nhcontf);
     char *buffer = (char *)malloc(_DEFAULT_NHEX_BUFFER_SIZE);
     if (!buffer) {
+        tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term);
         _ctx.initialized = true;
         nhend();
         return false;
@@ -192,10 +212,10 @@ int nhrows() {
     return rows;
 }
 
-bool nhwsize(int *cols, int *rows) {
+bool nhwsize(int *cols_ptr, int *rows_ptr) {
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &_ctx.ctx_ws) == -1) { return false; }
-    if (rows != NULL) { *rows = _ctx.ctx_ws.ws_row; }
-    if (cols != NULL) { *cols = _ctx.ctx_ws.ws_col; }
+    if (rows_ptr != NULL) { *rows_ptr = _ctx.ctx_ws.ws_row; }
+    if (cols_ptr != NULL) { *cols_ptr = _ctx.ctx_ws.ws_col; }
     return true;
 }
 
