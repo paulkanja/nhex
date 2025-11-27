@@ -246,7 +246,7 @@ int nhmvnf(int row, int col) {
     if (row > 0) {
         int _col;
         if (!nhcpos(NULL, &_col)) { return -1; }
-        return nhprintf("\033[s\033[%d;%dH\033[u", row, _col);
+        return nhprintf("\033[%d;%dH", row, _col);
     }
     return 0;
 }
