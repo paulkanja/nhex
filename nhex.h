@@ -88,10 +88,8 @@ void nhclear() {
     if (!_ctx.initialized) { return; }
     _ctx.buffer_count = 0;
     _ctx.buffer[0] = '\0';
-    // nhprint("\033[?25h");
     // TODO: properly shrink the buffer
     _nhcls();
-    // nhflush();
 }
 
 // TODO: investigate methods of getting pos without nhflush
@@ -140,7 +138,7 @@ void nhend() {
     free(_ctx.buffer);
     _ctx.initialized = false;
     // TODO: restore signal handlers
-    printf("\033[0m\033[?25h\033[?1049l");
+    printf("\033[?25h\033[0m\033[?25h\033[?1049l");
     fflush(stdout);
     // TODO: handle potential 'tcsetattr' error
     tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.origin_term);
