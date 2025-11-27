@@ -44,7 +44,7 @@ int   nhprint(const char *str);
 int   nhprintf(const char *format, ...);
 int   nhrows();
 bool  nhsettflags(int flags);
-bool  nhwsize(int *cols_ptr, int *rows_ptr);
+bool  nhwsize(int *rows_ptr, int *cols_ptr);
 
 #endif // _h_NHEX_
 
@@ -272,7 +272,7 @@ bool nhsettflags(int flags) {
     return tcsetattr(STDIN_FILENO, TCSANOW, &_ctx.ctx_term) != -1;
 }
 
-bool nhwsize(int *cols_ptr, int *rows_ptr) {
+bool nhwsize(int *rows_ptr, int *cols_ptr) {
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &_ctx.ctx_ws) == -1) { return false; }
     if (rows_ptr != NULL) { *rows_ptr = _ctx.ctx_ws.ws_row; }
     if (cols_ptr != NULL) { *cols_ptr = _ctx.ctx_ws.ws_col; }
